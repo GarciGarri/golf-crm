@@ -653,7 +653,7 @@ function ContactsView({ contacts, onRefresh }) {
       const headers = lines[0].split(',').map(h => h.trim().replace(/"/g, ''));
       const parsed = lines.slice(1).map(line => {
         const values = line.split(',').map(v => v.trim().replace(/"/g, ''));
-        const obj: any = {};
+        const obj = {};
         headers.forEach((h, i) => { obj[h] = values[i] || ''; });
         return obj;
       }).filter(r => r.name || r.nombre);
