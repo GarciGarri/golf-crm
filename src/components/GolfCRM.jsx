@@ -13,14 +13,28 @@ const initContacts = [
   { id:8, name:"Robert Chen", tg:"@rchen_golf", phone:"+1 415 555 0123", email:"rchen@corp.com", handicap:14, lang:"EN", visits:2, lastVisit:"hace 3 semanas", tags:["Turista","Alto Valor"], segment:"Normal", sentiment:"neutral", av:"RC", status:"active", clv:170, notes:"Ejecutivo en visita de negocios. Potencial corporativo alto.", category:"Lead" },
 ];
 
-const CONVS = [
-  { id:1, contact:"Carlos Mendoza", av:"CM", last:"Perfecto, nos vemos el sábado en el tee 1 🏌️", time:"10:32", unread:0, status:"resolved", sent:"positive" },
-  { id:2, contact:"James Walker", av:"JW", last:"Could you confirm my tee time for tomorrow?", time:"09:15", unread:2, status:"open", sent:"neutral" },
-  { id:3, contact:"Ingrid Björk", av:"IB", last:"Tack! Vi ses på lördag 🌿", time:"Ayer", unread:0, status:"resolved", sent:"positive" },
-  { id:4, contact:"Marco Rossi", av:"MR", last:"Non sono soddisfatto del servizio...", time:"Lun", unread:1, status:"open", sent:"negative" },
-  { id:5, contact:"Ana García", av:"AG", last:"¿Hay plazas para el torneo del domingo?", time:"Lun", unread:3, status:"open", sent:"neutral" },
-];
-const CAMPS = [
+const [CONVS, setCONVS] = useState([]);
+
+useEffect(() => {
+  fetch('/api/contacts')
+    .then(r => r.json())
+    .then(data => {
+      const convs = data.map(c => ({
+        id: c.id,
+        contact: c.name,
+        av: c.name.split(' ').map(n=>n[0]).join('').slice(0,2).toUpperCase(),
+        last: c.messages?.[c.messages.length-1]?.text || 'Sin mensajes',
+        time: c.messages?.[c.messages.length-1]?.created_at 
+          ? new Date(c.messages[c.messages.length-1].created_at).toLocaleTimeString('es',{hour:'2-digit',minute:'2-digit'})
+          : '—',
+        unread: c.messages?.filter(m=>m.direction==='in'&&!m.read).length || 0,
+        status: 'open',
+        sent: 'neutral',
+        telegram_chat_id: c.telegram_chat_id,
+      }));
+      setCONVS(convs);
+    });
+}, []);const CAMPS = [
   { id:1, name:"Black Friday Golf Week", status:"sent", seg:"Todos", sent:312, opened:187, replies:64, conv:28, date:"22 Nov" },
   { id:2, name:"Torneo Navidad - Invitación", status:"sent", seg:"Torneo", sent:89, opened:71, replies:43, conv:38, date:"15 Nov" },
   { id:3, name:"Reactivación Leads", status:"sending", seg:"Leads", sent:12, opened:5, replies:2, conv:1, date:"Hoy" },
