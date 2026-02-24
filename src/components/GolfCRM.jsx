@@ -500,11 +500,34 @@ function InboxView() {
   const [inp,setInp]=useState("");
   const [notif,setNotif]=useState(null);
   const isMob=typeof window!=="undefined"&&window.innerWidth<768;
-  const ac=CONVS.find(c=>c.id===active);
-  const msgs=active===2?MSGS_JW:active===4?[{from:"contact",text:"Ciao, non sono soddisfatto del servizio...",time:"14:22"},{from:"agent",text:"Buongiorno Marco, mi dispiace. Ti offriamo una green fee gratuita.",time:"15:10",agent:"Laura M."}]:[];
+const [msgs2, setMsgs2] = useState([]);
+useEffect(()=>{
+  if(!active) return;
+  fetch(`/api/messages?contact_id=${active}`)
+    .then(r=>r.json())
+    .then(data=>setMsgs2(data));
+  const interval = setInterval(()=>{
+    fetch(`/api/messages?contact_id=${active}`)
+      .then(r=>r.json())
+      .then(data=>setMsgs2(data));
+  }, 5000);
+  return ()=>clearInterval(interval);
+},[active]);
+const ac=CONVS.find(c=>c.id===active);  const msgs=msgs2.map(m=>({from:m.direction==='in'?'contact':m.direction==='bot'?'bot':'agent',text:m.text,time:new Date(m.created_at).toLocaleTimeString('es',{hour:'2-digit',minute:'2-digit'})}));
+
   const sug=active===2?"Your tee time is confirmed at 8:30am, Tee 1. Weather: 18°C ☀️\n\n/myteetimes — /menu":active===4?"Marco, mi dispiace per l'inconveniente. Ti offriamo una green fee gratuita per la tua prossima visita 🙏":"Hola, ¿en qué puedo ayudarte?";
   const flt=tabK==="all"?CONVS:CONVS.filter(c=>c.status===(tabK==="open"?"open":"resolved"));
-  const send=()=>{if(!inp.trim())return;setNotif("✓ Enviado por Telegram");setInp("");setTimeout(()=>setNotif(null),2500)};
+  const send=()=>{
+  if(!inp.trim()||!ac) return;
+  fetch('/api/messages/send',{
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({contact_id:active, text:inp, telegram_chat_id:ac.telegram_chat_id})
+  });
+  setNotif("✓ Enviado por Telegram");
+  setInp("");
+  setTimeout(()=>setNotif(null),2500);
+};
   return (
     <div className="inbox-wrap">
       <div className={`inbox-list${active&&isMob?" hide":""}`}>
