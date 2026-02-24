@@ -6,32 +6,28 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 )
 
-export async function GET() {
-  const { data, error } = await supabase
-    .from('contacts')
-    .select('*, messages(*)')
-    .order('created_at', { ascending: false })
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
-  return NextResponse.json(data || [])
-}
-
-export async function POST(req: NextRequest) {
+export async function PUT(req: NextRequest, { params }: { params: { id: string } }) {
   const body = await req.json()
   const { data, error } = await supabase
     .from('contacts')
-    .insert({
+    .update({
       name: body.name,
       telegram_username: body.telegram_username || null,
-      telegram_chat_id: body.telegram_chat_id || null,
       handicap: body.handicap || null,
       language: body.language || 'ES',
       segment: body.segment || 'Normal',
       tags: body.tags || [],
-      opted_in: body.opted_in || false,
-      sentiment: 'neutral',
+      sentiment: body.sentiment || 'neutral',
     })
+    .eq('id', params.id)
     .select()
     .single()
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
   return NextResponse.json(data)
+}
+
+export async function DELETE(_req: NextRequest, { params }: { params: { id: string } }) {
+  const { error } = await supabase.from('contacts').delete().eq('id', params.id)
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  return NextResponse.json({ ok: true })
 }

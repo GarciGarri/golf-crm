@@ -8,8 +8,8 @@ const supabase = createClient(
 
 export async function GET() {
   const { data, error } = await supabase
-    .from('contacts')
-    .select('*, messages(*)')
+    .from('campaigns')
+    .select('*')
     .order('created_at', { ascending: false })
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
   return NextResponse.json(data || [])
@@ -18,17 +18,13 @@ export async function GET() {
 export async function POST(req: NextRequest) {
   const body = await req.json()
   const { data, error } = await supabase
-    .from('contacts')
+    .from('campaigns')
     .insert({
       name: body.name,
-      telegram_username: body.telegram_username || null,
-      telegram_chat_id: body.telegram_chat_id || null,
-      handicap: body.handicap || null,
-      language: body.language || 'ES',
-      segment: body.segment || 'Normal',
-      tags: body.tags || [],
-      opted_in: body.opted_in || false,
-      sentiment: 'neutral',
+      message: body.message,
+      segment: body.segment || 'Todos',
+      status: 'draft',
+      scheduled_at: body.scheduled_at || null,
     })
     .select()
     .single()
