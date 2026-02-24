@@ -15,24 +15,7 @@ const initContacts = [
 
 
 const CONVS = [];
-    .then(r => r.json())
-    .then(data => {
-      const convs = data.map(c => ({
-        id: c.id,
-        contact: c.name,
-        av: c.name.split(' ').map(n=>n[0]).join('').slice(0,2).toUpperCase(),
-        last: c.messages?.[c.messages.length-1]?.text || 'Sin mensajes',
-        time: c.messages?.[c.messages.length-1]?.created_at 
-          ? new Date(c.messages[c.messages.length-1].created_at).toLocaleTimeString('es',{hour:'2-digit',minute:'2-digit'})
-          : '—',
-        unread: c.messages?.filter(m=>m.direction==='in'&&!m.read).length || 0,
-        status: 'open',
-        sent: 'neutral',
-        telegram_chat_id: c.telegram_chat_id,
-      }));
-      setCONVS(convs);
-    });
-}, []);const CAMPS = [
+const CAMPS = [
   { id:1, name:"Black Friday Golf Week", status:"sent", seg:"Todos", sent:312, opened:187, replies:64, conv:28, date:"22 Nov" },
   { id:2, name:"Torneo Navidad - Invitación", status:"sent", seg:"Torneo", sent:89, opened:71, replies:43, conv:38, date:"15 Nov" },
   { id:3, name:"Reactivación Leads", status:"sending", seg:"Leads", sent:12, opened:5, replies:2, conv:1, date:"Hoy" },
