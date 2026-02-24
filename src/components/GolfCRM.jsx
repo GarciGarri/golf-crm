@@ -1082,128 +1082,176 @@ function CampaignsView({ contacts }) {
 }
 
 // ─── CLUB INFO ────────────────────────────────────────────────────────────────
+// ─── CLUB INFO VIEW ──────────────────────────────────────────────────────────
+// Paste this function replacing the existing ClubInfoView in GolfCRM.jsx
+
 function ClubInfoView() {
-  const [info, setInfo] = useState({
+  const EMPTY = {
+    general: { name: 'Golf Valle Verde', description: '', schedule: '' },
+    contact_info: { phone: '', email: '', address: '', website: '' },
     prices: [],
     tournaments: [],
+    offers: [],
+    academy: [],
+    weather: { note: '', updated: '' },
     local_rules: '',
-    general: '',
-    contact_info: { phone: '', email: '', address: '' },
-  });
+    reservations: { info: '', link: '', advance_hours: '24' },
+    bot_menu: {
+      welcome: '¡Bienvenido al Club! ¿En qué puedo ayudarte? 👇',
+      options: [
+        { icon: '⛳', label: 'Reservar tee time', response: 'Para reservar una salida usa nuestra web o llámanos al {phone}. Disponibilidad en tiempo real en {link}.' },
+        { icon: '💰', label: 'Tarifas y precios', response: '' },
+        { icon: '🏆', label: 'Próximos torneos', response: '' },
+        { icon: '🎁', label: 'Ofertas especiales', response: '' },
+        { icon: '🌤️', label: 'Previsión del tiempo', response: '' },
+        { icon: '📋', label: 'Reglas locales', response: '' },
+        { icon: '🎓', label: 'Academia y clases', response: '' },
+        { icon: '📞', label: 'Contacto', response: '' },
+      ]
+    },
+  };
+
+  const [info, setInfo] = useState(EMPTY);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [notif, setNotif] = useState(null);
-  const [tab, setTab] = useState("prices");
+  const [notifType, setNotifType] = useState('ok');
+  const [tab, setTab] = useState('general');
 
   useEffect(() => {
-    fetch('/api/club-info').then(r => r.json()).then(data => {
-      setInfo({
-        prices: data.prices || [],
-        tournaments: data.tournaments || [],
-        local_rules: data.local_rules || '',
-        general: data.general || '',
-        contact_info: data.contact_info || { phone: '', email: '', address: '' },
-      });
-      setLoading(false);
-    });
+    fetch('/api/club-info')
+      .then(r => r.json())
+      .then(data => {
+        setInfo({
+          general: data.general || EMPTY.general,
+          contact_info: data.contact_info || EMPTY.contact_info,
+          prices: data.prices || [],
+          tournaments: data.tournaments || [],
+          offers: data.offers || [],
+          academy: data.academy || [],
+          weather: data.weather || EMPTY.weather,
+          local_rules: data.local_rules || '',
+          reservations: data.reservations || EMPTY.reservations,
+          bot_menu: data.bot_menu || EMPTY.bot_menu,
+        });
+        setLoading(false);
+      })
+      .catch(() => setLoading(false));
   }, []);
+
+  const notify = (msg, type = 'ok') => { setNotif(msg); setNotifType(type); setTimeout(() => setNotif(null), 2500); };
 
   const save = async () => {
     setSaving(true);
-    await fetch('/api/club-info', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(info),
-    });
+    try {
+      const res = await fetch('/api/club-info', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(info),
+      });
+      if (res.ok) notify('✓ Guardado — la IA usará este contexto');
+      else notify('Error al guardar', 'err');
+    } catch { notify('Error de conexión', 'err'); }
     setSaving(false);
-    setNotif('✓ Información guardada');
-    setTimeout(() => setNotif(null), 2500);
   };
 
-  const addPrice = () => setInfo(p => ({ ...p, prices: [...p.prices, { name: '', price: '', description: '' }] }));
-  const updatePrice = (i, k, v) => setInfo(p => { const arr = [...p.prices]; arr[i] = { ...arr[i], [k]: v }; return { ...p, prices: arr }; });
-  const removePrice = (i) => setInfo(p => ({ ...p, prices: p.prices.filter((_, j) => j !== i) }));
+  // Helpers
+  const addItem = (key) => setInfo(p => ({ ...p, [key]: [...(p[key] || []), {}] }));
+  const updateItem = (key, i, k, v) => setInfo(p => { const arr = [...p[key]]; arr[i] = { ...arr[i], [k]: v }; return { ...p, [key]: arr }; });
+  const removeItem = (key, i) => setInfo(p => ({ ...p, [key]: p[key].filter((_, j) => j !== i) }));
+  const updateMenuOption = (i, k, v) => setInfo(p => {
+    const opts = [...p.bot_menu.options];
+    opts[i] = { ...opts[i], [k]: v };
+    return { ...p, bot_menu: { ...p.bot_menu, options: opts } };
+  });
+  const addMenuOption = () => setInfo(p => ({ ...p, bot_menu: { ...p.bot_menu, options: [...p.bot_menu.options, { icon: '•', label: '', response: '' }] } }));
+  const removeMenuOption = (i) => setInfo(p => ({ ...p, bot_menu: { ...p.bot_menu, options: p.bot_menu.options.filter((_, j) => j !== i) } }));
 
-  const addTournament = () => setInfo(p => ({ ...p, tournaments: [...p.tournaments, { name: '', date: '', description: '', price: '' }] }));
-  const updateTournament = (i, k, v) => setInfo(p => { const arr = [...p.tournaments]; arr[i] = { ...arr[i], [k]: v }; return { ...p, tournaments: arr }; });
-  const removeTournament = (i) => setInfo(p => ({ ...p, tournaments: p.tournaments.filter((_, j) => j !== i) }));
+  const today = new Date();
+  const upcomingTournaments = (info.tournaments || []).filter(t => t.date && new Date(t.date) >= today).sort((a, b) => new Date(a.date) - new Date(b.date));
 
-  if (loading) return <div className="content">{[1, 2].map(i => <div key={i} className="shimmer" style={{ height: 80, borderRadius: "var(--r)", marginBottom: 9 }} />)}</div>;
+  const TABS = [
+    ['general', 'ℹ️', 'General'],
+    ['prices', '💰', 'Tarifas'],
+    ['tournaments', '🏆', 'Torneos'],
+    ['offers', '🎁', 'Ofertas'],
+    ['academy', '🎓', 'Academia'],
+    ['weather', '🌤️', 'Tiempo'],
+    ['reservations', '📅', 'Reservas'],
+    ['bot', '🤖', 'Bot / Menú'],
+  ];
+
+  if (loading) return (
+    <div className="content">
+      {[1, 2, 3].map(i => <div key={i} className="shimmer" style={{ height: 80, borderRadius: 'var(--r)', marginBottom: 9 }} />)}
+    </div>
+  );
 
   return (
     <div className="content">
       <div className="aib" style={{ marginBottom: 13 }}>
-        <div className="aib-l">✦ Esta información se usa como contexto para la IA</div>
-        <div className="aib-t">Los borradores de mensajes y las respuestas del bot usarán estos datos para dar información precisa sobre el club.</div>
+        <div className="aib-l">✦ Contexto vivo para la IA</div>
+        <div className="aib-t">Todo lo que configures aquí se inyecta automáticamente en los borradores IA y en las respuestas del chatbot. Cuanto más completo, mejores respuestas.</div>
       </div>
 
-      <div className="tabs">
-        {[["prices", "💰 Tarifas"], ["tournaments", "🏆 Torneos"], ["rules", "📋 Reglas"], ["general", "ℹ️ General"]].map(([id, l]) => (
-          <button key={id} className={`tab ${tab === id ? "on" : ""}`} onClick={() => setTab(id)}>{l}</button>
+      {/* Tab bar */}
+      <div style={{ display: 'flex', gap: 4, marginBottom: 14, overflowX: 'auto', paddingBottom: 2, flexWrap: 'wrap' }}>
+        {TABS.map(([id, ic, l]) => (
+          <button key={id} onClick={() => setTab(id)} style={{
+            padding: '6px 11px', borderRadius: 'var(--rs)', fontSize: 12, fontWeight: 600,
+            border: `1.5px solid ${tab === id ? 'var(--pine)' : 'var(--fog)'}`,
+            background: tab === id ? 'var(--pine)' : 'white',
+            color: tab === id ? 'white' : 'var(--mist)',
+            cursor: 'pointer', whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: 4,
+          }}>{ic} {l}</button>
         ))}
       </div>
 
-      {tab === "prices" && (
+      {/* GENERAL */}
+      {tab === 'general' && (
         <div className="card">
-          <div className="ch"><span className="ct">💰 Tabla de precios</span><button className="btn btn-s btn-sm" onClick={addPrice}>+ Añadir</button></div>
+          <div className="ch"><span className="ct">ℹ️ Información general del club</span></div>
           <div className="cb">
-            {info.prices.length === 0 && <div className="empty-state" style={{ padding: 20 }}><div style={{ fontSize: 12 }}>Sin tarifas — añade la primera</div></div>}
-            {info.prices.map((p, i) => (
-              <div key={i} style={{ display: "flex", gap: 8, marginBottom: 8, alignItems: "flex-start", padding: "10px", background: "var(--fw)", borderRadius: "var(--rs)", border: "1px solid var(--fog)" }}>
-                <div style={{ flex: 2 }}><input className="fi" placeholder="Nombre (ej: Green fee 18h)" value={p.name} onChange={e => updatePrice(i, 'name', e.target.value)} /></div>
-                <div style={{ flex: 1 }}><input className="fi" placeholder="Precio (ej: 65€)" value={p.price} onChange={e => updatePrice(i, 'price', e.target.value)} /></div>
-                <div style={{ flex: 2 }}><input className="fi" placeholder="Descripción" value={p.description} onChange={e => updatePrice(i, 'description', e.target.value)} /></div>
-                <button className="btn btn-danger btn-sm" onClick={() => removePrice(i)}>✕</button>
-              </div>
-            ))}
-            {info.prices.length > 0 && (
-              <div className="card" style={{ marginTop: 11 }}>
-                <div className="ch"><span className="ct">Vista previa</span></div>
-                <div className="cb">
-                  {info.prices.map((p, i) => (
-                    <div key={i} className="price-row">
-                      <div><div style={{ fontWeight: 600, fontSize: 13 }}>{p.name || '—'}</div>{p.description && <div style={{ fontSize: 11, color: "var(--mist)" }}>{p.description}</div>}</div>
-                      <span className="price-val">{p.price}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
+            <div className="two-col">
+              <div className="fg"><label className="fl">Nombre del club</label><input className="fi" value={info.general?.name || ''} onChange={e => setInfo(p => ({ ...p, general: { ...p.general, name: e.target.value } }))} placeholder="Golf Valle Verde" /></div>
+              <div className="fg"><label className="fl">Horario general</label><input className="fi" value={info.general?.schedule || ''} onChange={e => setInfo(p => ({ ...p, general: { ...p.general, schedule: e.target.value } }))} placeholder="Lunes a domingo 7:30 - 20:00" /></div>
+            </div>
+            <div className="fg"><label className="fl">Descripción (para la IA)</label><textarea className="fta" rows={4} value={info.general?.description || ''} onChange={e => setInfo(p => ({ ...p, general: { ...p.general, description: e.target.value } }))} placeholder="Campo de 18 hoyos par 72, 6.200m. Diseñado por... Situado en... Características especiales..." /></div>
+            <div className="div" />
+            <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 9, color: 'var(--ink)' }}>📞 Datos de contacto</div>
+            <div className="two-col">
+              <div className="fg"><label className="fl">Teléfono</label><input className="fi" value={info.contact_info?.phone || ''} onChange={e => setInfo(p => ({ ...p, contact_info: { ...p.contact_info, phone: e.target.value } }))} placeholder="+34 900 000 000" /></div>
+              <div className="fg"><label className="fl">Email</label><input className="fi" value={info.contact_info?.email || ''} onChange={e => setInfo(p => ({ ...p, contact_info: { ...p.contact_info, email: e.target.value } }))} placeholder="info@club.es" /></div>
+            </div>
+            <div className="two-col">
+              <div className="fg"><label className="fl">Dirección</label><input className="fi" value={info.contact_info?.address || ''} onChange={e => setInfo(p => ({ ...p, contact_info: { ...p.contact_info, address: e.target.value } }))} placeholder="Carretera N-123, km 5, Madrid" /></div>
+              <div className="fg"><label className="fl">Web / Booking</label><input className="fi" value={info.contact_info?.website || ''} onChange={e => setInfo(p => ({ ...p, contact_info: { ...p.contact_info, website: e.target.value } }))} placeholder="https://valleverde.es" /></div>
+            </div>
           </div>
         </div>
       )}
 
-      {tab === "tournaments" && (
+      {/* PRICES */}
+      {tab === 'prices' && (
         <div className="card">
-          <div className="ch"><span className="ct">🏆 Torneos y eventos</span><button className="btn btn-s btn-sm" onClick={addTournament}>+ Añadir</button></div>
+          <div className="ch"><span className="ct">💰 Tabla de tarifas</span><button className="btn btn-s btn-sm" onClick={() => addItem('prices')}>+ Añadir tarifa</button></div>
           <div className="cb">
-            {info.tournaments.length === 0 && <div className="empty-state" style={{ padding: 20 }}><div style={{ fontSize: 12 }}>Sin torneos — añade el primero</div></div>}
-            {info.tournaments.map((t, i) => (
-              <div key={i} style={{ padding: 11, background: "var(--fw)", borderRadius: "var(--rs)", border: "1px solid var(--fog)", marginBottom: 8 }}>
-                <div className="two-col" style={{ marginBottom: 7 }}>
-                  <input className="fi" placeholder="Nombre del torneo" value={t.name} onChange={e => updateTournament(i, 'name', e.target.value)} />
-                  <input className="fi" type="date" value={t.date} onChange={e => updateTournament(i, 'date', e.target.value)} />
-                </div>
-                <div className="two-col">
-                  <input className="fi" placeholder="Precio inscripción" value={t.price} onChange={e => updateTournament(i, 'price', e.target.value)} />
-                  <input className="fi" placeholder="Descripción / modalidad" value={t.description} onChange={e => updateTournament(i, 'description', e.target.value)} />
-                </div>
-                <button className="btn btn-danger btn-sm" style={{ marginTop: 7 }} onClick={() => removeTournament(i)}>🗑️ Eliminar</button>
+            {info.prices.length === 0 && <div className="empty-state" style={{ padding: 24 }}><div style={{ fontSize: 12 }}>Añade tus tarifas — la IA las incluirá en respuestas sobre precios</div><button className="btn btn-p btn-sm" onClick={() => addItem('prices')}>+ Añadir primera tarifa</button></div>}
+            {info.prices.map((p, i) => (
+              <div key={i} style={{ display: 'flex', gap: 7, marginBottom: 7, alignItems: 'center', padding: 9, background: 'var(--fw)', borderRadius: 'var(--rs)', border: '1px solid var(--fog)' }}>
+                <input className="fi" style={{ flex: 2 }} placeholder="Nombre (ej: Green fee 18 hoyos)" value={p.name || ''} onChange={e => updateItem('prices', i, 'name', e.target.value)} />
+                <input className="fi" style={{ flex: 1, maxWidth: 90 }} placeholder="65€" value={p.price || ''} onChange={e => updateItem('prices', i, 'price', e.target.value)} />
+                <input className="fi" style={{ flex: 2 }} placeholder="Descripción (ej: L-V, socios -20%)" value={p.description || ''} onChange={e => updateItem('prices', i, 'description', e.target.value)} />
+                <button className="btn btn-danger btn-sm" onClick={() => removeItem('prices', i)}>✕</button>
               </div>
             ))}
-            {info.tournaments.length > 0 && (
-              <div style={{ marginTop: 11 }}>
-                <div style={{ fontSize: 11, fontWeight: 700, color: "var(--mist)", textTransform: "uppercase", marginBottom: 8 }}>Próximos torneos</div>
-                {info.tournaments.sort((a, b) => new Date(a.date) - new Date(b.date)).map((t, i) => (
-                  <div key={i} className="tournament-row">
-                    <div style={{ width: 42, height: 42, background: "var(--pine)", borderRadius: "var(--rs)", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", color: "white", flexShrink: 0 }}>
-                      <div style={{ fontSize: 14, fontWeight: 800 }}>{t.date ? new Date(t.date).getDate() : '—'}</div>
-                      <div style={{ fontSize: 9 }}>{t.date ? new Date(t.date).toLocaleDateString('es', { month: 'short' }).toUpperCase() : ''}</div>
-                    </div>
-                    <div style={{ flex: 1 }}>
-                      <div style={{ fontSize: 13, fontWeight: 600 }}>{t.name}</div>
-                      <div style={{ fontSize: 11, color: "var(--mist)" }}>{t.description} {t.price && `· ${t.price}`}</div>
-                    </div>
+            {info.prices.length > 0 && (
+              <div style={{ marginTop: 13, border: '1px solid var(--fog)', borderRadius: 'var(--rs)', overflow: 'hidden' }}>
+                <div style={{ padding: '8px 12px', background: 'var(--fw)', fontWeight: 700, fontSize: 12, borderBottom: '1px solid var(--fog)' }}>Vista previa</div>
+                {info.prices.map((p, i) => (
+                  <div key={i} className="price-row" style={{ padding: '8px 12px' }}>
+                    <div><div style={{ fontSize: 13, fontWeight: 600 }}>{p.name || '—'}</div>{p.description && <div style={{ fontSize: 11, color: 'var(--mist)' }}>{p.description}</div>}</div>
+                    <span className="price-val">{p.price}</span>
                   </div>
                 ))}
               </div>
@@ -1212,45 +1260,202 @@ function ClubInfoView() {
         </div>
       )}
 
-      {tab === "rules" && (
+      {/* TOURNAMENTS */}
+      {tab === 'tournaments' && (
         <div className="card">
-          <div className="ch"><span className="ct">📋 Reglas locales del campo</span></div>
+          <div className="ch"><span className="ct">🏆 Torneos y eventos</span><button className="btn btn-s btn-sm" onClick={() => addItem('tournaments')}>+ Añadir</button></div>
           <div className="cb">
-            <div className="fg"><label className="fl">Reglas locales y normas del club</label><textarea className="fta" rows={10} placeholder="Ej: Obligatorio buggy los fines de semana. Dress code requerido. Handicap máximo 36 para torneos. Reservas mínimo 24h de antelación..." value={info.local_rules} onChange={e => setInfo(p => ({ ...p, local_rules: e.target.value }))} /></div>
+            {info.tournaments.length === 0 && <div className="empty-state" style={{ padding: 24 }}><div style={{ fontSize: 12 }}>Añade torneos — la IA informará a los clientes de fechas y precios</div><button className="btn btn-p btn-sm" onClick={() => addItem('tournaments')}>+ Añadir torneo</button></div>}
+            {info.tournaments.map((t, i) => (
+              <div key={i} style={{ padding: 11, background: 'var(--fw)', borderRadius: 'var(--rs)', border: '1px solid var(--fog)', marginBottom: 8 }}>
+                <div className="two-col" style={{ marginBottom: 7 }}>
+                  <input className="fi" placeholder="Nombre del torneo" value={t.name || ''} onChange={e => updateItem('tournaments', i, 'name', e.target.value)} />
+                  <input className="fi" type="date" value={t.date || ''} onChange={e => updateItem('tournaments', i, 'date', e.target.value)} />
+                </div>
+                <div className="two-col">
+                  <input className="fi" placeholder="Precio inscripción (ej: 45€)" value={t.price || ''} onChange={e => updateItem('tournaments', i, 'price', e.target.value)} />
+                  <input className="fi" placeholder="Modalidad (Stableford, 4Ball...)" value={t.description || ''} onChange={e => updateItem('tournaments', i, 'description', e.target.value)} />
+                </div>
+                <input className="fi" style={{ marginTop: 7 }} placeholder="Info adicional (premios, requisitos, plazas...)" value={t.extra || ''} onChange={e => updateItem('tournaments', i, 'extra', e.target.value)} />
+                <button className="btn btn-danger btn-sm" style={{ marginTop: 7 }} onClick={() => removeItem('tournaments', i)}>🗑️ Eliminar</button>
+              </div>
+            ))}
+            {upcomingTournaments.length > 0 && (
+              <div style={{ marginTop: 13 }}>
+                <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--mist)', textTransform: 'uppercase', marginBottom: 8 }}>Próximos ({upcomingTournaments.length})</div>
+                {upcomingTournaments.map((t, i) => (
+                  <div key={i} className="tournament-row">
+                    <div style={{ width: 42, height: 42, background: 'var(--pine)', borderRadius: 'var(--rs)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: 'white', flexShrink: 0 }}>
+                      <div style={{ fontSize: 14, fontWeight: 800 }}>{new Date(t.date).getDate()}</div>
+                      <div style={{ fontSize: 9 }}>{new Date(t.date).toLocaleDateString('es', { month: 'short' }).toUpperCase()}</div>
+                    </div>
+                    <div style={{ flex: 1 }}><div style={{ fontSize: 13, fontWeight: 600 }}>{t.name}</div><div style={{ fontSize: 11, color: 'var(--mist)' }}>{t.description} {t.price && `· ${t.price}`}</div></div>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         </div>
       )}
 
-      {tab === "general" && (
+      {/* OFFERS */}
+      {tab === 'offers' && (
+        <div className="card">
+          <div className="ch"><span className="ct">🎁 Ofertas y promociones activas</span><button className="btn btn-s btn-sm" onClick={() => addItem('offers')}>+ Añadir oferta</button></div>
+          <div className="cb">
+            {info.offers.length === 0 && <div className="empty-state" style={{ padding: 24 }}><div style={{ fontSize: 12 }}>Las ofertas activas se incluyen automáticamente en los mensajes de la IA</div><button className="btn btn-p btn-sm" onClick={() => addItem('offers')}>+ Primera oferta</button></div>}
+            {info.offers.map((o, i) => (
+              <div key={i} style={{ padding: 11, background: o.active !== false ? '#f0faf3' : 'var(--fw)', borderRadius: 'var(--rs)', border: `1px solid ${o.active !== false ? 'var(--dew)' : 'var(--fog)'}`, marginBottom: 8 }}>
+                <div className="two-col" style={{ marginBottom: 7 }}>
+                  <input className="fi" placeholder="Nombre oferta (ej: Pack Weekend)" value={o.name || ''} onChange={e => updateItem('offers', i, 'name', e.target.value)} />
+                  <input className="fi" placeholder="Precio / descuento (ej: 89€ o -30%)" value={o.price || ''} onChange={e => updateItem('offers', i, 'price', e.target.value)} />
+                </div>
+                <textarea className="fta" rows={2} style={{ marginBottom: 7 }} placeholder="Descripción de la oferta (qué incluye, condiciones...)" value={o.description || ''} onChange={e => updateItem('offers', i, 'description', e.target.value)} />
+                <div className="two-col">
+                  <input className="fi" placeholder="Válido hasta (fecha)" type="date" value={o.expires || ''} onChange={e => updateItem('offers', i, 'expires', e.target.value)} />
+                  <label style={{ display: 'flex', gap: 7, alignItems: 'center', fontSize: 13, cursor: 'pointer', padding: '0 4px' }}>
+                    <input type="checkbox" checked={o.active !== false} onChange={e => updateItem('offers', i, 'active', e.target.checked)} />
+                    Oferta activa
+                  </label>
+                </div>
+                <button className="btn btn-danger btn-sm" style={{ marginTop: 7 }} onClick={() => removeItem('offers', i)}>🗑️ Eliminar</button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* ACADEMY */}
+      {tab === 'academy' && (
+        <div className="card">
+          <div className="ch"><span className="ct">🎓 Academia y clases</span><button className="btn btn-s btn-sm" onClick={() => addItem('academy')}>+ Añadir</button></div>
+          <div className="cb">
+            {info.academy.length === 0 && <div className="empty-state" style={{ padding: 24 }}><div style={{ fontSize: 12 }}>Clases, cursos y actividades de la academia del club</div><button className="btn btn-p btn-sm" onClick={() => addItem('academy')}>+ Añadir clase</button></div>}
+            {info.academy.map((a, i) => (
+              <div key={i} style={{ padding: 11, background: 'var(--fw)', borderRadius: 'var(--rs)', border: '1px solid var(--fog)', marginBottom: 8 }}>
+                <div className="two-col" style={{ marginBottom: 7 }}>
+                  <input className="fi" placeholder="Nombre (ej: Clases iniciación, Cursillo junior...)" value={a.name || ''} onChange={e => updateItem('academy', i, 'name', e.target.value)} />
+                  <input className="fi" placeholder="Precio (ej: 50€/hora, 200€/mes)" value={a.price || ''} onChange={e => updateItem('academy', i, 'price', e.target.value)} />
+                </div>
+                <div className="two-col">
+                  <input className="fi" placeholder="Horario (ej: L-V 10:00-12:00)" value={a.schedule || ''} onChange={e => updateItem('academy', i, 'schedule', e.target.value)} />
+                  <input className="fi" placeholder="Nivel (iniciación, intermedio, avanzado)" value={a.level || ''} onChange={e => updateItem('academy', i, 'level', e.target.value)} />
+                </div>
+                <input className="fi" style={{ marginTop: 7 }} placeholder="Descripción / profesor / plazas disponibles" value={a.description || ''} onChange={e => updateItem('academy', i, 'description', e.target.value)} />
+                <button className="btn btn-danger btn-sm" style={{ marginTop: 7 }} onClick={() => removeItem('academy', i)}>🗑️ Eliminar</button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* WEATHER */}
+      {tab === 'weather' && (
+        <div className="card">
+          <div className="ch"><span className="ct">🌤️ Previsión meteorológica</span></div>
+          <div className="cb">
+            <div className="aib">
+              <div className="aib-l">✦ Nota meteorológica manual</div>
+              <div className="aib-t">Actualiza esta nota cuando quieras. La IA la incluirá en respuestas cuando el cliente pregunte por el tiempo o la disponibilidad del campo.</div>
+            </div>
+            <div className="fg">
+              <label className="fl">Previsión actual del campo</label>
+              <textarea className="fta" rows={4} value={info.weather?.note || ''} onChange={e => setInfo(p => ({ ...p, weather: { ...p.weather, note: e.target.value, updated: new Date().toISOString() } }))} placeholder="Ej: Esta semana buen tiempo en el campo. Temperatura 18-22°C. El campo está en excelentes condiciones tras el mantenimiento del lunes. Los hoyos 7 y 12 tienen algunas zonas húmedas por las lluvias del fin de semana." />
+            </div>
+            {info.weather?.updated && (
+              <div style={{ fontSize: 11, color: 'var(--mist)', marginTop: 4 }}>
+                Última actualización: {new Date(info.weather.updated).toLocaleString('es')}
+              </div>
+            )}
+            <div style={{ display: 'flex', gap: 7, marginTop: 11, flexWrap: 'wrap' }}>
+              {['☀️ Soleado y caluroso', '⛅ Nublado pero jugable', '🌧️ Lluvia — campo cerrado', '🌬️ Viento fuerte — precaución', '🌡️ Frío pero seco — campo abierto'].map(w => (
+                <button key={w} className="btn btn-s btn-sm" onClick={() => setInfo(p => ({ ...p, weather: { note: w, updated: new Date().toISOString() } }))} style={{ fontSize: 12 }}>{w}</button>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* RESERVATIONS */}
+      {tab === 'reservations' && (
+        <div className="card">
+          <div className="ch"><span className="ct">📅 Sistema de reservas</span></div>
+          <div className="cb">
+            <div className="fg">
+              <label className="fl">Información de reservas (para la IA)</label>
+              <textarea className="fta" rows={4} value={info.reservations?.info || ''} onChange={e => setInfo(p => ({ ...p, reservations: { ...p.reservations, info: e.target.value } }))} placeholder="Ej: Las reservas se hacen online en nuestra web o llamando al club. Mínimo 24h de antelación. Pago garantizado con tarjeta. Cancelación gratuita hasta 12h antes." />
+            </div>
+            <div className="two-col">
+              <div className="fg"><label className="fl">Link de reservas</label><input className="fi" value={info.reservations?.link || ''} onChange={e => setInfo(p => ({ ...p, reservations: { ...p.reservations, link: e.target.value } }))} placeholder="https://reservas.valleverde.es" /></div>
+              <div className="fg"><label className="fl">Antelación mínima (horas)</label><input className="fi" type="number" value={info.reservations?.advance_hours || '24'} onChange={e => setInfo(p => ({ ...p, reservations: { ...p.reservations, advance_hours: e.target.value } }))} /></div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* BOT MENU */}
+      {tab === 'bot' && (
         <div>
           <div className="card">
-            <div className="ch"><span className="ct">📞 Información de contacto</span></div>
+            <div className="ch"><span className="ct">🤖 Mensaje de bienvenida</span></div>
             <div className="cb">
-              <div className="three-col">
-                <div className="fg"><label className="fl">Teléfono</label><input className="fi" placeholder="+34 900 000 000" value={info.contact_info?.phone || ''} onChange={e => setInfo(p => ({ ...p, contact_info: { ...p.contact_info, phone: e.target.value } }))} /></div>
-                <div className="fg"><label className="fl">Email</label><input className="fi" placeholder="info@club.es" value={info.contact_info?.email || ''} onChange={e => setInfo(p => ({ ...p, contact_info: { ...p.contact_info, email: e.target.value } }))} /></div>
-                <div className="fg"><label className="fl">Dirección</label><input className="fi" placeholder="Calle, ciudad" value={info.contact_info?.address || ''} onChange={e => setInfo(p => ({ ...p, contact_info: { ...p.contact_info, address: e.target.value } }))} /></div>
+              <div className="fg">
+                <label className="fl">Primera interacción — mensaje de bienvenida</label>
+                <textarea className="fta" rows={3} value={info.bot_menu?.welcome || ''} onChange={e => setInfo(p => ({ ...p, bot_menu: { ...p.bot_menu, welcome: e.target.value } }))} placeholder="¡Bienvenido al Club Golf Valle Verde! ¿En qué puedo ayudarte? 👇" />
               </div>
+              <div style={{ fontSize: 11, color: 'var(--mist)' }}>Este mensaje se envía automáticamente cuando alguien escribe /start o /menu en Telegram.</div>
             </div>
           </div>
+
           <div className="card">
-            <div className="ch"><span className="ct">ℹ️ Descripción general</span></div>
+            <div className="ch">
+              <span className="ct">📱 Opciones del menú</span>
+              <button className="btn btn-s btn-sm" onClick={addMenuOption}>+ Añadir opción</button>
+            </div>
             <div className="cb">
-              <textarea className="fta" rows={6} placeholder="Descripción del club, servicios, características del campo, horarios..." value={info.general} onChange={e => setInfo(p => ({ ...p, general: e.target.value }))} />
+              <div className="aib">
+                <div className="aib-l">✦ Cómo funciona</div>
+                <div className="aib-t">El bot muestra estas opciones como botones en Telegram. Cuando el cliente pulsa una, el bot responde con el texto que configures. Deja la respuesta en blanco para que la IA genere una respuesta dinámica con el contexto del club.</div>
+              </div>
+              {(info.bot_menu?.options || []).map((o, i) => (
+                <div key={i} style={{ padding: 11, background: 'var(--fw)', borderRadius: 'var(--rs)', border: '1px solid var(--fog)', marginBottom: 8 }}>
+                  <div style={{ display: 'flex', gap: 7, marginBottom: 7 }}>
+                    <input className="fi" style={{ width: 50, textAlign: 'center', fontSize: 18 }} value={o.icon || ''} onChange={e => updateMenuOption(i, 'icon', e.target.value)} placeholder="⛳" />
+                    <input className="fi" style={{ flex: 1 }} value={o.label || ''} onChange={e => updateMenuOption(i, 'label', e.target.value)} placeholder="Texto del botón (ej: Reservar tee time)" />
+                    <button className="btn btn-danger btn-sm" onClick={() => removeMenuOption(i)}>✕</button>
+                  </div>
+                  <textarea className="fta" rows={2} value={o.response || ''} onChange={e => updateMenuOption(i, 'response', e.target.value)} placeholder="Respuesta automática (dejar en blanco para respuesta IA dinámica)" />
+                </div>
+              ))}
+              {/* Preview */}
+              {info.bot_menu?.options?.length > 0 && (
+                <div style={{ marginTop: 13, padding: 13, background: '#1a1a2e', borderRadius: 'var(--r)', color: 'white' }}>
+                  <div style={{ fontSize: 11, color: 'rgba(255,255,255,.4)', marginBottom: 9, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.5px' }}>Vista previa Telegram</div>
+                  <div style={{ background: '#2d5a3d', color: 'white', padding: '9px 13px', borderRadius: '12px 12px 12px 3px', fontSize: 13, marginBottom: 10, maxWidth: '80%' }}>
+                    {info.bot_menu.welcome || '¡Bienvenido! ¿En qué puedo ayudarte?'}
+                  </div>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                    {info.bot_menu.options.filter(o => o.label).map((o, i) => (
+                      <div key={i} style={{ background: 'rgba(255,255,255,.1)', border: '1px solid rgba(255,255,255,.2)', padding: '6px 11px', borderRadius: 20, fontSize: 12, color: 'white', cursor: 'default' }}>
+                        {o.icon} {o.label}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         </div>
       )}
 
-      <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 11 }}>
+      <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 11 }}>
+        <button className="btn btn-s" onClick={() => setTab(TABS[(TABS.findIndex(t => t[0] === tab) + 1) % TABS.length][0])}>Siguiente sección →</button>
         <button className="btn btn-p" onClick={save} disabled={saving}>{saving ? 'Guardando...' : '✓ Guardar todo'}</button>
       </div>
-      <Notif msg={notif} />
+      <Notif msg={notif} type={notifType} />
     </div>
   );
 }
-
-// ─── ANALYTICS ────────────────────────────────────────────────────────────────
 function AnalyticsView({ contacts }) {
   const leads = contacts.filter(c => c.category === 'Lead');
   const vip = contacts.filter(c => c.segment === 'VIP');
