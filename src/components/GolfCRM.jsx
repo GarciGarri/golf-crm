@@ -34,17 +34,7 @@ useEffect(() => {
       }));
       setCONVS(convs);
     });
-}, []);const CAMPS = [
-  { id:1, name:"Black Friday Golf Week", status:"sent", seg:"Todos", sent:312, opened:187, replies:64, conv:28, date:"22 Nov" },
-  { id:2, name:"Torneo Navidad - Invitación", status:"sent", seg:"Torneo", sent:89, opened:71, replies:43, conv:38, date:"15 Nov" },
-  { id:3, name:"Reactivación Leads", status:"sending", seg:"Leads", sent:12, opened:5, replies:2, conv:1, date:"Hoy" },
-  { id:4, name:"Oferta Fin de Semana VIP", status:"draft", seg:"VIP", sent:0, opened:0, replies:0, conv:0, date:"Pendiente" },
-];
-const MSGS_JW = [
-  { from:"contact", text:"Hi! I'd like to confirm my tee time for tomorrow morning.", time:"09:10" },
-  { from:"bot", text:"Hello James! ✅ Your tee time is confirmed for tomorrow at 8:30am, Tee 1.\n\n⛅ Weather: 18°C, light breeze. Perfect conditions.\n\n📍 /myteetimes — /menu — /cancel", time:"09:11" },
-  { from:"contact", text:"Could you confirm my tee time for tomorrow?", time:"09:15" },
-];
+}, []);
 
 // ─── CSS ──────────────────────────────────────────────────────────────────────
 const css = `
