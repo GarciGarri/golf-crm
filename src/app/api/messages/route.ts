@@ -1,5 +1,5 @@
 import { createClient } from '@supabase/supabase-js'
-import { NextResponse, NextRequest } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -8,12 +8,21 @@ const supabase = createClient(
 
 export async function GET(req: NextRequest) {
   const contactId = req.nextUrl.searchParams.get('contact_id')
-  
+  if (!contactId) return NextResponse.json([])
+
   const { data } = await supabase
     .from('messages')
     .select('*')
     .eq('contact_id', contactId)
     .order('created_at', { ascending: true })
+
+  // Mark incoming messages as read
+  await supabase
+    .from('messages')
+    .update({ read: true })
+    .eq('contact_id', contactId)
+    .eq('direction', 'in')
+    .eq('read', false)
 
   return NextResponse.json(data || [])
 }

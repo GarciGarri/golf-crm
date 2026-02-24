@@ -8,27 +8,16 @@ const supabase = createClient(
 
 export async function PUT(req: NextRequest, { params }: { params: { id: string } }) {
   const body = await req.json()
-  const update: Record<string, any> = {
-    name: body.name,
-    telegram_username: body.telegram_username || null,
-    handicap: body.handicap || null,
-    language: body.language || 'ES',
-    segment: body.segment || 'Normal',
-    tags: body.tags || [],
-    sentiment: body.sentiment || 'neutral',
-    date_of_birth: body.date_of_birth || null,
-  }
-  if (body.conversation_status) {
-    update.conversation_status = body.conversation_status
-    if (body.conversation_status === 'resolved') {
-      update.resolved_by = body.resolved_by || 'Agente'
-      update.resolved_at = new Date().toISOString()
-    }
-  }
   const { data, error } = await supabase
-    .from('contacts')
-    .update(update)
+    .from('campaigns')
+    .update({
+      name: body.name,
+      message: body.message,
+      segment: body.segment || 'Todos',
+      scheduled_at: body.scheduled_at || null,
+    })
     .eq('id', params.id)
+    .eq('status', 'draft') // only allow editing drafts
     .select()
     .single()
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
@@ -36,7 +25,10 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
 }
 
 export async function DELETE(_req: NextRequest, { params }: { params: { id: string } }) {
-  const { error } = await supabase.from('contacts').delete().eq('id', params.id)
+  const { error } = await supabase
+    .from('campaigns')
+    .delete()
+    .eq('id', params.id)
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
   return NextResponse.json({ ok: true })
 }

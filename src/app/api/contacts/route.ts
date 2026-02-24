@@ -29,6 +29,8 @@ export async function POST(req: NextRequest) {
       tags: body.tags || [],
       opted_in: body.opted_in || false,
       sentiment: 'neutral',
+      date_of_birth: body.date_of_birth || null,
+      conversation_status: 'open',
     })
     .select()
     .single()
