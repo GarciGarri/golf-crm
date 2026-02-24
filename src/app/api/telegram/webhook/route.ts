@@ -1,10 +1,10 @@
-import { Bot, InlineKeyboard } from 'grammy'
+import { Bot } from 'grammy'
 import { NextRequest } from 'next/server'
 
 const bot = new Bot(process.env.TELEGRAM_BOT_TOKEN!)
 
 bot.command('start', async (ctx) => {
-  await ctx.reply('¡Hola! 👋 Soy Valeria, asistente de Golf Valle Verde 🌿\n\n¿En qué puedo ayudarte?')
+  await ctx.reply('¡Hola! 👋 Soy Valeria, asistente de Golf Valle Verde 🌿\n\n/tarifas — /stop')
 })
 
 bot.command('tarifas', async (ctx) => {
@@ -12,11 +12,11 @@ bot.command('tarifas', async (ctx) => {
 })
 
 bot.command('stop', async (ctx) => {
-  await ctx.reply('✅ Te has dado de baja. Escribe /start para volver.')
+  await ctx.reply('✅ Dado de baja. Escribe /start para volver.')
 })
 
 bot.on('message:text', async (ctx) => {
-  await ctx.reply('Recibido 👍 Un agente te responderá pronto.\n\n/tarifas — /stop')
+  await ctx.reply('Recibido 👍 Un agente te responderá pronto.')
 })
 
 export async function POST(req: NextRequest) {
@@ -25,6 +25,7 @@ export async function POST(req: NextRequest) {
     return new Response('Forbidden', { status: 403 })
   }
   const update = await req.json()
+  await bot.init()
   await bot.handleUpdate(update)
   return new Response('OK')
 }
